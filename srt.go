@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"io"
-	"log"
 	"time"
 )
 
@@ -39,13 +38,12 @@ func (b Block) Bytes() []byte {
 
 func (b *Block) Write(buf []byte) (int, error) {
 	buf = append([]byte("00\n"), buf...)
-	log.Printf("%q", buf)
 	t, n, err := parseBlock(buf)
 	if err != nil {
 		return 0, err
 	}
 	*b = t
-	return n, io.EOF
+	return n, nil
 }
 
 func (b Block) Read(buf []byte) (int, error) {
@@ -71,9 +69,27 @@ func parseBlock(buf []byte) (Block, int, error) {
 	if err != nil {
 		return b, 0, err
 	}
-	c := bytes.TrimSpace(bs[2])
-	b.Content = bytes.Replace(c, []byte("\r\n"), []byte("\n"), -1)
-	return b, len(bs[0]) + len(bs[1]) + len(bs[2]), nil
+	var n int
+	b.Content, n, err = parseContent(bs[2])
+	if err != nil {
+		return b, 0, err
+	}
+	return b, len(bs[0]) + len(bs[1]) + n - 1, nil
+}
+
+func parseContent(buf []byte) ([]byte, int, error) {
+	l := len(buf)
+	for i := 0; i < l; i++ {
+		if l-i > 1 && buf[i] == byte('\n') && buf[i+1] == byte('\n') {
+			buf = buf[:i]
+			break
+		} else if l-i > 3 && buf[i] == byte('\r') && buf[i+1] == byte('\n') && buf[i+2] == byte('\r') && buf[i+3] == byte('\n') {
+			buf = buf[:i]
+			buf = bytes.Replace(buf, []byte("\r\n"), []byte("\n"), -1)
+			break
+		}
+	}
+	return buf, l, nil
 }
 
 func parseTime(buf []byte) (Time, error) {
