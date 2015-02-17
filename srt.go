@@ -20,6 +20,12 @@ var (
 	ErrParseIdx    = errors.New("string is not a number")
 )
 
+var (
+	newl  = []byte("\n")
+	cardr = []byte("\r")
+	tsep  = []byte(" -> ")
+)
+
 type Block struct {
 	Start, End Time
 	Content    []byte
@@ -31,13 +37,14 @@ func ParseBlock(buf []byte) (Block, error) {
 }
 
 func (b Block) Bytes() []byte {
-	return []byte(
-		b.Start.String() + " -> " + b.End.String() + "\n" +
-			string(b.Content) + "\n\n")
+	return bytes.Join([][]byte{
+		b.Start.Bytes(), tsep, b.End.Bytes(), newl,
+		b.Content, newl, newl,
+	}, nil)
 }
 
 func (b *Block) Write(buf []byte) (int, error) {
-	buf = append([]byte("00\n"), buf...)
+	//buf = append([]byte("00\n"), buf...)
 	t, n, err := parseBlock(buf)
 	if err != nil {
 		return 0, err
@@ -52,6 +59,10 @@ func (b Block) Read(buf []byte) (int, error) {
 
 type Time struct {
 	time.Time
+}
+
+func (t Time) Bytes() []byte {
+	return []byte(t.String())
 }
 
 func (t Time) String() string {
@@ -80,12 +91,13 @@ func parseBlock(buf []byte) (Block, int, error) {
 func parseContent(buf []byte) ([]byte, int, error) {
 	l := len(buf)
 	for i := 0; i < l; i++ {
-		if l-i > 1 && buf[i] == byte('\n') && buf[i+1] == byte('\n') {
+		n := l - i
+		if n > 1 && buf[i] == '\n' && buf[i+1] == '\n' {
 			buf = buf[:i]
 			break
-		} else if l-i > 3 && buf[i] == byte('\r') && buf[i+1] == byte('\n') && buf[i+2] == byte('\r') && buf[i+3] == byte('\n') {
-			buf = buf[:i]
-			buf = bytes.Replace(buf, []byte("\r\n"), []byte("\n"), -1)
+		}
+		if n > 3 && buf[i] == '\r' && buf[i+1] == '\n' && buf[i+2] == '\r' && buf[i+3] == '\n' {
+			buf = bytes.Replace(buf[:i], []byte("\r\n"), []byte("\n"), -1)
 			break
 		}
 	}
@@ -93,12 +105,11 @@ func parseContent(buf []byte) ([]byte, int, error) {
 }
 
 func parseTime(buf []byte) (Time, error) {
-	s := string(buf)
-	if len(s) < lenTime {
+	if len(buf) < lenTime {
 		return Time{}, ErrShortString
 	}
-	s = s[0:8] + "." + s[9:12]
-	t, err := time.Parse(TimeLayout, s)
+	buf[8] = '.'
+	t, err := time.Parse(TimeLayout, string(buf))
 	if err != nil {
 		return Time{}, err
 	}
@@ -107,14 +118,14 @@ func parseTime(buf []byte) (Time, error) {
 
 func parseTimeLine(buf []byte) (stime, etime Time, err error) {
 	if len(buf) < lenTimeLine {
-		return Time{}, Time{}, ErrShortString
+		return stime, etime, ErrShortString
 	}
 
-	stime, err = parseTime(buf)
+	stime, err = parseTime(buf[:lenTime])
 	if err != nil {
 		return
 	}
-	etime, err = parseTime(buf[etOff:])
+	etime, err = parseTime(buf[etOff : etOff+lenTime])
 	return
 }
 
