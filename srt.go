@@ -11,10 +11,6 @@ type Time struct {
 	time.Time
 }
 
-func (t Time) Bytes() []byte {
-	return []byte(t.String())
-}
-
 func (t Time) String() string {
 	return t.Format(timeFormat)
 }
