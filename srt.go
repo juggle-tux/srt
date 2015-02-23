@@ -7,12 +7,18 @@ type Block struct {
 	Content    []string
 }
 
+func (b *Block) AddDuration(d time.Duration) {
+	b.Start = Time{b.Start.Add(d)}
+	b.End = Time{b.End.Add(d)}
+}
+
 type Time struct {
 	time.Time
 }
 
 func (t Time) String() string {
-	return t.Format(timeFormat)
+	s := t.Format(timeFormat)
+	return s[:timeCommaOff] + "," + s[1+timeCommaOff:]
 }
 
 const (

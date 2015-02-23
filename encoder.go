@@ -99,3 +99,31 @@ func parseTime(s string) (st, et Time, err error) {
 	et = Time{t}
 	return st, et, nil
 }
+
+type Encoder struct {
+	w   *bufio.Writer
+	idx int
+}
+
+func NewEncoder(w io.Writer, idx int) Encoder {
+	return Encoder{
+		w:   bufio.NewWriter(w),
+		idx: idx,
+	}
+}
+
+func (e *Encoder) Block(b Block) error {
+	str := strconv.Itoa(e.idx) + "\n"
+	str += b.Start.String() + timeDelim + b.End.String() + "\n"
+	for _, s := range b.Content {
+		str += s + "\n"
+	}
+	str += "\n"
+	e.idx++
+	_, err := e.w.WriteString(str)
+	return err
+}
+
+func (e *Encoder) Flush() error {
+	return e.w.Flush()
+}

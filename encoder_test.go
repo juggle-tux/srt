@@ -2,6 +2,7 @@ package srt
 
 import (
 	"io"
+	"os"
 	"strings"
 	"testing"
 )
@@ -22,9 +23,20 @@ two
 three lines`
 
 func TestDecode(t *testing.T) {
-	enc := NewDecoder(strings.NewReader(input))
-	for _, err := enc.Next(); err != io.EOF; _, err = enc.Next() {
+	dec := NewDecoder(strings.NewReader(input))
+	f, err := os.Create(os.DevNull)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	enc := NewEncoder(f, 0)
+	defer enc.Flush()
+	for b, err := dec.Next(); err != io.EOF; b, err = dec.Next() {
 		if err != nil {
+			t.Fatal(err)
+		}
+
+		if err := enc.Block(b); err != nil {
 			t.Fatal(err)
 		}
 	}
