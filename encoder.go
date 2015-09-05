@@ -20,6 +20,7 @@ func NewDecoder(r io.Reader) Decoder {
 	}
 }
 
+// Next returns the next Subtitle line
 func (d *Decoder) Next() (Block, error) {
 	var (
 		b   Block
@@ -34,7 +35,7 @@ func (d *Decoder) Next() (Block, error) {
 		return b, io.EOF // no scan no error we are done
 	}
 	// we check that the Block starts with a int but ignore the value
-	// since we will build the index later out of the []Block order.
+	// since the Encoder keeps his own idx
 	if _, err = strconv.Atoi(d.s.Text()); err != nil {
 		return b, d.error(err)
 	}
@@ -61,6 +62,8 @@ func (d *Decoder) Next() (Block, error) {
 	if len(b.Content) < 1 {
 		return b, d.error(errors.New("no content"))
 	}
+	//	log.Printf("%+v\n", b) // output for debug
+
 	return b, d.s.Err()
 }
 
@@ -78,7 +81,7 @@ func (d Decoder) error(e error) error {
 
 func parseTime(s string) (st, et Time, err error) {
 	if len(s) != timeLineLen {
-		return st, et, fmt.Errorf("malformated TimeLine: %q", s)
+		return st, et, fmt.Errorf("TimeLine too short: %q", s)
 	}
 	// start time
 	sts := s[:timeLen]

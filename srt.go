@@ -7,7 +7,7 @@ type Block struct {
 	Content    []string
 }
 
-func (b *Block) AddDuration(d time.Duration) {
+func (b *Block) Add(d time.Duration) {
 	b.Start = Time{b.Start.Add(d)}
 	b.End = Time{b.End.Add(d)}
 }

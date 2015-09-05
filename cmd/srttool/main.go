@@ -52,7 +52,7 @@ func main() {
 			return
 		}
 		for _, b := range bs {
-			b.AddDuration(*offset)
+			b.Add(*offset)
 			if err := enc.Block(b); err != nil {
 				log.Print(err)
 				return
