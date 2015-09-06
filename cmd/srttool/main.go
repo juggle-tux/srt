@@ -1,64 +1,66 @@
-package main // srttool is a cli tool to adjust the times in a srt subtitle file
+// srttool is a cli tool to adjust the times in a srt subtitle file
+package main
 
 import (
-	"flag"
 	"io"
 	"log"
 	"os"
-	"runtime/pprof"
+	"time"
 
+	"github.com/jawher/mow.cli"
 	"juggle.tux/srt"
 )
 
-var ( // FLags
-	offset  = flag.Duration("offset", 0, "")
-	outfile = flag.String("o", "", "output file default stdout")
-	infiles []string
-
-	cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
+var app = cli.App("srttool-go", "time adjustment tool for srt subtitle files")
+var (
+	ClInfiles = app.Strings(cli.StringsArg{Name: "SRTFILES", Desc: "Input files", HideValue: true})
+	ClOutfile = app.String(cli.StringOpt{Name: "f output", Desc: "Output file"})
+	ClOffset  = app.String(cli.StringOpt{Name: "o offset", Value: "0", Desc: "Time offset"})
 )
 
-func main() {
-	flag.Parse()
-	infiles = flag.Args()
+func init() {
+	app.Spec = "[OPTIONS] SRTFILES..."
+	app.Action = run
+}
 
-	if *cpuprofile != "" {
-		f, err := os.Create(*cpuprofile)
-		if err != nil {
-			log.Fatal(err)
-		}
-		pprof.StartCPUProfile(f)
-		defer pprof.StopCPUProfile()
+func run() {
+	offset, err := time.ParseDuration(*ClOffset)
+	if err != nil {
+		log.Fatal(err)
 	}
-	var ofile *os.File
-	var err error
-	if *outfile == "" {
-		ofile = os.Stdout
+
+	var outfile *os.File
+	if *ClOutfile == "" {
+		outfile = os.Stdout
 	} else {
-		ofile, err = os.Create(*outfile)
+		outfile, err = os.Create(*ClOutfile)
 		if err != nil {
 			log.Fatal(err)
 		}
 	}
-	defer ofile.Close()
-	enc := srt.NewEncoder(ofile, 0)
+	defer outfile.Close()
+	enc := srt.NewEncoder(outfile, 0)
 	defer enc.Flush()
 
 	// Main loop
-	for _, f := range infiles {
+	for _, f := range *ClInfiles {
 		bs, err := getFile(f)
 		if err != nil {
 			log.Print(err)
 			return
 		}
 		for _, b := range bs {
-			b.Add(*offset)
+			b.Add(offset)
 			if err := enc.Block(b); err != nil {
 				log.Print(err)
 				return
 			}
 		}
 	}
+}
+
+func main() {
+	app.Run(os.Args)
 }
 
 func getFile(file string) ([]srt.Block, error) {
