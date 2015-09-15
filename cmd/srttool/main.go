@@ -14,8 +14,8 @@ import (
 var app = cli.App("srttool-go", "time adjustment tool for srt subtitle files")
 var (
 	ClInfiles = app.Strings(cli.StringsArg{Name: "SRTFILES", Desc: "Input files", HideValue: true})
-	ClOutfile = app.String(cli.StringOpt{Name: "f output", Desc: "Output file"})
-	ClOffset  = app.String(cli.StringOpt{Name: "o offset", Value: "0", Desc: "Time offset"})
+	ClOutfile = app.String(cli.StringOpt{Name: "f output", Desc: "Output file (default is stdout)"})
+	ClOffset  = app.String(cli.StringOpt{Name: "o offset", Value: "0s", Desc: "Time offset"})
 )
 
 func init() {
