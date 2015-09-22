@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/jawher/mow.cli"
-	"juggle.tux/srt"
+	"github.com/juggle-tux/srt"
 )
 
-var app = cli.App("srttool-go", "time adjustment tool for srt subtitle files")
+var app = cli.App(os.Args[0], "time adjustment tool for srt subtitle files")
 var (
 	ClInfiles = app.Strings(cli.StringsArg{Name: "SRTFILES", Desc: "Input files", HideValue: true})
 	ClOutfile = app.String(cli.StringOpt{Name: "f output", Desc: "Output file (default is stdout)"})
