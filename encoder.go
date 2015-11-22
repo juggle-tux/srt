@@ -9,11 +9,13 @@ import (
 	"time"
 )
 
+//
 type Decoder struct {
 	s *bufio.Scanner
 	c int // count of scanned lines
 }
 
+//
 func NewDecoder(r io.Reader) Decoder {
 	return Decoder{
 		s: bufio.NewScanner(r),
@@ -79,35 +81,39 @@ func (d Decoder) error(e error) error {
 	return fmt.Errorf("line %d: %s", d.c, e)
 }
 
-func parseTime(s string) (st, et Time, err error) {
-	if len(s) != timeLineLen {
-		return st, et, fmt.Errorf("TimeLine too short: %q", s)
+func parseTime(s string) (start, end Time, err error) {
+	if len(s) < timeLineLen {
+		return start, end, fmt.Errorf("TimeLine too short: %q", s)
 	}
+
 	// start time
 	sts := s[:timeLen]
 	// workaround: time.Parse can't handle a "," as a delim betwen seconds and milli seconds
 	sts = sts[0:timeCommaOff] + "." + sts[1+timeCommaOff:]
 	t, err := time.Parse(timeFormat, sts)
 	if err != nil {
-		return st, et, err
+		return start, end, err
 	}
-	st = Time{t}
+	start = Time{t}
+
 	// end time
 	ets := s[etimeOff : etimeOff+timeLen]
 	ets = ets[0:timeCommaOff] + "." + ets[1+timeCommaOff:]
 	t, err = time.Parse(timeFormat, ets)
 	if err != nil {
-		return st, et, err
+		return start, end, err
 	}
-	et = Time{t}
-	return st, et, nil
+	end = Time{t}
+	return start, end, nil
 }
 
+//
 type Encoder struct {
 	w   *bufio.Writer
 	idx int
 }
 
+//
 func NewEncoder(w io.Writer, idx int) Encoder {
 	return Encoder{
 		w:   bufio.NewWriter(w),
@@ -115,6 +121,7 @@ func NewEncoder(w io.Writer, idx int) Encoder {
 	}
 }
 
+//
 func (e *Encoder) Block(b Block) error {
 	str := strconv.Itoa(e.idx) + "\n"
 	str += b.Start.String() + timeDelim + b.End.String() + "\n"
@@ -127,6 +134,7 @@ func (e *Encoder) Block(b Block) error {
 	return err
 }
 
+//
 func (e *Encoder) Flush() error {
 	return e.w.Flush()
 }

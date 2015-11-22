@@ -13,69 +13,65 @@ import (
 
 var app = cli.App(os.Args[0], "time adjustment tool for srt subtitle files")
 var (
-	ClInfiles = app.Strings(cli.StringsArg{Name: "SRTFILES", Desc: "Input files", HideValue: true})
-	ClOutfile = app.String(cli.StringOpt{Name: "f output", Desc: "Output file (default is stdout)"})
-	ClOffset  = app.String(cli.StringOpt{Name: "o offset", Value: "0s", Desc: "Time offset"})
+	clInfiles = app.Strings(cli.StringsArg{
+		Name: "SRTFILES", Desc: "Input files", HideValue: true,
+	})
+	clOutfile = app.String(cli.StringOpt{
+		Name: "f output", Desc: "Output file (default is stdout)",
+	})
+	clOffset = app.String(cli.StringOpt{
+		Name: "o offset", Value: "0s", Desc: "Time offset",
+	})
 )
 
-func init() {
+func main() {
 	app.Spec = "[OPTIONS] SRTFILES..."
 	app.Action = run
+	app.Run(os.Args)
 }
 
 func run() {
-	offset, err := time.ParseDuration(*ClOffset)
+	offset, err := time.ParseDuration(*clOffset)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	var outfile *os.File
-	if *ClOutfile == "" {
+	if *clOutfile == "" {
 		outfile = os.Stdout
 	} else {
-		outfile, err = os.Create(*ClOutfile)
+		outfile, err = os.Create(*clOutfile)
 		if err != nil {
 			log.Fatal(err)
 		}
 	}
 	defer outfile.Close()
+
 	enc := srt.NewEncoder(outfile, 0)
 	defer enc.Flush()
 
 	// Main loop
-	for _, f := range *ClInfiles {
-		bs, err := getFile(f)
-		if err != nil {
-			log.Print(err)
-			return
-		}
-		for _, b := range bs {
-			b.Add(offset)
-			if err := enc.Block(b); err != nil {
-				log.Print(err)
-				return
+	for _, f := range *clInfiles {
+		if err := func() error {
+			f, err := os.Open(f)
+			if err != nil {
+				return err
 			}
+			defer f.Close()
+			dec := srt.NewDecoder(f)
+
+			for b, err := dec.Next(); err != io.EOF; b, err = dec.Next() {
+				if err != nil {
+					return err
+				}
+				b.Add(offset)
+				if err := enc.Block(b); err != nil {
+					return err
+				}
+			}
+			return nil
+		}(); err != nil {
+			log.Fatal(err)
 		}
 	}
-}
-
-func main() {
-	app.Run(os.Args)
-}
-
-func getFile(file string) ([]srt.Block, error) {
-	f, err := os.Open(file)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	dec := srt.NewDecoder(f)
-	bs := make([]srt.Block, 0, 100)
-	for b, err := dec.Next(); err != io.EOF; b, err = dec.Next() {
-		if err != nil {
-			return nil, err
-		}
-		bs = append(bs, b)
-	}
-	return bs, nil
 }
