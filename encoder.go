@@ -2,11 +2,9 @@ package srt
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"io"
 	"strconv"
-	"time"
 )
 
 //
@@ -23,62 +21,56 @@ func NewDecoder(r io.Reader) Decoder {
 }
 
 // Next returns the next Subtitle line
-func (d *Decoder) Next() (Block, error) {
-	var (
-		b   Block
-		err error
-	)
+func (d *Decoder) Next() (b Block, err error) {
+	var s string
 
 	// idx
-	if !d.scan() {
-		if err = d.s.Err(); err != nil {
-			return b, d.error(err)
-		}
-		return b, io.EOF // no scan no error we are done
+	if s, err = d.scan(); err != nil {
+		return b, d.error(err)
 	}
 	// we check that the Block starts with a int but ignore the value
 	// since the Encoder keeps his own idx
-	if _, err = strconv.Atoi(d.s.Text()); err != nil {
+	if _, err = strconv.Atoi(s); err != nil {
 		return b, d.error(err)
 	}
 
 	// Time
-	if !d.scan() {
-		if err = d.s.Err(); err != nil {
-			return b, d.error(err)
-		}
-		return b, d.error(io.ErrUnexpectedEOF) // oops we are not done yet
+	if s, err = d.scan(); err == io.EOF {
+		return b, d.error(io.ErrUnexpectedEOF)
+	} else if err != nil {
+		return b, d.error(err)
 	}
-	if b.Start, b.End, err = parseTime(d.s.Text()); err != nil {
+	if b.Start, b.End, err = parseTime(s); err != nil {
 		return b, d.error(err)
 	}
 
 	// Content
-	for d.scan() {
-		l := d.s.Text()
-		if l == "" {
-			break
+	for s, err = d.scan(); err == nil && s != ""; s, err = d.scan() {
+		b.Content = append(b.Content, s)
+	}
+	return b, d.error(err)
+}
+
+func (d *Decoder) scan() (string, error) {
+	if !d.s.Scan() {
+		if err := d.s.Err(); err != nil {
+			return "", err
 		}
-		b.Content = append(b.Content, l)
+		return "", io.EOF
 	}
-	if len(b.Content) < 1 {
-		return b, d.error(errors.New("no content"))
-	}
-	//	log.Printf("%+v\n", b) // output for debug
-
-	return b, d.s.Err()
+	d.c++
+	return d.s.Text(), nil
 }
 
-func (d *Decoder) scan() bool {
-	ok := d.s.Scan()
-	if ok {
-		d.c++
+func (d Decoder) error(err error) error {
+	switch err {
+	case nil:
+		return nil
+	case io.EOF:
+		return io.EOF
+	default:
+		return fmt.Errorf("line %d: %s", d.c, err)
 	}
-	return ok
-}
-
-func (d Decoder) error(e error) error {
-	return fmt.Errorf("line %d: %s", d.c, e)
 }
 
 func parseTime(s string) (start, end Time, err error) {
@@ -86,25 +78,13 @@ func parseTime(s string) (start, end Time, err error) {
 		return start, end, fmt.Errorf("TimeLine too short: %q", s)
 	}
 
-	// start time
-	sts := s[:timeLen]
-	// workaround: time.Parse can't handle a "," as a delim betwen seconds and milli seconds
-	sts = sts[0:timeCommaOff] + "." + sts[1+timeCommaOff:]
-	t, err := time.Parse(timeFormat, sts)
+	start, err = Parse(s)
 	if err != nil {
 		return start, end, err
 	}
-	start = Time{t}
 
-	// end time
-	ets := s[etimeOff : etimeOff+timeLen]
-	ets = ets[0:timeCommaOff] + "." + ets[1+timeCommaOff:]
-	t, err = time.Parse(timeFormat, ets)
-	if err != nil {
-		return start, end, err
-	}
-	end = Time{t}
-	return start, end, nil
+	end, err = Parse(s[etimeOff:])
+	return start, end, err
 }
 
 //
